@@ -1,0 +1,27 @@
+[project]
+name = "organizational_structure_api"
+version = "0.0.1"
+description = "Organizational Structure API"
+authors = [
+    { name = "Georgy Dryndin", email = "georbearwolf@gmail.com" },
+]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "Django==6.0.2",
+    "djangorestframework==3.16.1",
+    "django-environ==0.13.0",
+    "drf-spectacular==0.29.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "src.conf.settings"
+python_files = "tests.py test_*.py *_tests.py"
+addopts = "--create-db"
+testpaths = "tests"
+
+[project.optional-dependencies]
+test = [
+    "pytest==9.0.2",
+    "pytest-django==4.12.0",
+]
