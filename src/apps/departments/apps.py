@@ -2,4 +2,4 @@ from django.apps import AppConfig
 
 
 class DepartmentsConfig(AppConfig):
-    name = 'src.apps.departments'
+    name = "src.apps.departments"

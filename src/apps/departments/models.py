@@ -2,6 +2,7 @@
 
 from django.db import models
 
+
 class DepartmentModel(models.Model):
     """Model representing an organizational department."""
 

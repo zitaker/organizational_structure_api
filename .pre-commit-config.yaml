@@ -1,0 +1,18 @@
+repos:
+  - repo: local
+    hooks:
+    - id: black
+      name: black (system)
+      entry: black
+      exclude: migrations/
+      language: system
+      types: [ python ]
+      args: [ --quiet ]
+
+    - id: isort
+      name: isort (system)
+      entry: python3 -m isort
+      exclude: migrations/
+      language: system
+      types: [ python ]
+      args: [ --quiet, --profile=black ]
