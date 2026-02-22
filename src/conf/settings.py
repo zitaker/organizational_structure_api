@@ -10,22 +10,29 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+import environ
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+root = environ.Path(__file__) - 3  # get root of the project
+env = environ.Env()
+environ.Env.read_env(os.path.join(root, ".env"))  # reading .env file
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-(gm3$td0$r!ml6vje9=05!t2!5xlxd*3(t-iiuiirv)3dqk5&r"
+SECRET_KEY = env.str("SECRET_KEY", default="default_secret_key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool("DEBUG", default=False)
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
 
 # Application definition
@@ -52,6 +59,69 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+}
+
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "require_debug_false": {
+            "()": "django.utils.log.RequireDebugFalse",
+        },
+        "require_debug_true": {
+            "()": "django.utils.log.RequireDebugTrue",
+        },
+        "stream_filter": {
+            "()": "src.contrib.logging.filters.LoggingNoErrorFilter",
+        },
+    },
+    "formatters": {
+        "console": {
+            "format": "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+            "datefmt": "[%d/%b/%Y %H:%M:%S]",
+        },
+        "file": {
+            "format": "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+            "datefmt": "[%d/%b/%Y %H:%M:%S]",
+        },
+    },
+    "handlers": {
+        "error_stream": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+            "stream": "ext://sys.stderr",
+            "level": "ERROR",
+        },
+        "other_stream": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+            "filters": ["stream_filter"],
+            "stream": "ext://sys.stdout",
+            "level": env.str("LOGGING_LEVEL", default="DEBUG"),
+        },
+        "file": {
+            "level": env.str("LOGGING_LEVEL", default="DEBUG"),
+            "class": "logging.handlers.RotatingFileHandler",
+            "formatter": "file",
+            "filename": env.str("LOGGING_FILENAME", default="logging.log"),
+            "maxBytes": 2**26,
+            "backupCount": 10,
+        },
+    },
+    "loggers": {
+        "": {
+            "level": env.str("LOGGING_LEVEL", default="DEBUG"),
+            "handlers": ["error_stream", "other_stream", "file"],
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["error_stream", "other_stream", "file"],
+        },
+        "django.server": {
+            "handlers": ["error_stream", "other_stream", "file"],
+        },
+    },
 }
 
 MIDDLEWARE = [
@@ -87,10 +157,16 @@ WSGI_APPLICATION = "src.conf.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
+
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        **env.db_url("DEFAULT_DB", default="sqlite:///conf.sqlite3"),
     }
 }
 
