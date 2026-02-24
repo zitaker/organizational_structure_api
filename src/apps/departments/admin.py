@@ -7,14 +7,14 @@ from src.apps.departments.models import DepartmentModel, EmployeeModel
 class DepartmentModelAdmin(admin.ModelAdmin):
     """Admin configuration for DepartmentModel."""
 
-    fields = ["name", "parent_id", "created_at"]
+    fields = ["name", "parent", "created_at"]
     list_display = [
         "id",
-        "parent_id",
+        "parent",
         "name",
     ]
     list_filter = [
-        "parent_id",
+        "parent",
         "name",
     ]
     readonly_fields = ["created_at"]
@@ -24,10 +24,10 @@ class DepartmentModelAdmin(admin.ModelAdmin):
 class EmployeeModelAdmin(admin.ModelAdmin):
     """Admin configuration for EmployeeModel."""
 
-    fields = ["department_id", "full_name", "position", "hired_at", "created_at"]
+    fields = ["department", "full_name", "position", "hired_at", "created_at"]
     list_display = [
         "id",
-        "department_id",
+        "department",
         "full_name",
     ]
     list_filter = ["full_name", "position"]

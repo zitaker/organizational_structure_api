@@ -8,14 +8,17 @@ class DepartmentModel(models.Model):
     """Model representing an organizational department."""
 
     name = models.CharField(
-        max_length=100, verbose_name=_("Name"), blank=False, null=False
+        max_length=200,
+        verbose_name=_("Name"),
+        blank=False,
+        null=False,
     )
-    parent_id = models.ForeignKey(
+    parent = models.ForeignKey(
         "self",
         on_delete=models.CASCADE,
         null=True,
         blank=True,
-        verbose_name=_("Parent id"),
+        verbose_name=_("Parent"),
         related_name="subdepartments",
     )
     created_at = models.DateTimeField(_("Date of creation"), auto_now_add=True)
@@ -32,17 +35,17 @@ class DepartmentModel(models.Model):
 class EmployeeModel(models.Model):
     """Model representing an employee."""
 
-    department_id = models.ForeignKey(
+    department = models.ForeignKey(
         DepartmentModel,
         on_delete=models.CASCADE,
-        verbose_name=_("Department id"),
+        verbose_name=_("Department"),
         related_name="employees",
     )
     full_name = models.CharField(
         max_length=200, verbose_name=_("Full name"), blank=False, null=False
     )
     position = models.CharField(
-        max_length=100, verbose_name=_("Position"), blank=False, null=False
+        max_length=200, verbose_name=_("Position"), blank=False, null=False
     )
     hired_at = models.DateField(_("Hired date"), null=True, blank=True)
     created_at = models.DateTimeField(_("Date of creation"), auto_now_add=True)

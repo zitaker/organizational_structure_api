@@ -15,4 +15,5 @@ class EmployeeViewSet(viewsets.ModelViewSet):
     serializer_class = EmployeeSerializer
     http_method_names = [
         HTTPMethod.GET.lower(),
+        HTTPMethod.POST.lower(),
     ]
