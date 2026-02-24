@@ -11,9 +11,11 @@ from rest_framework.exceptions import NotFound
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from apps.departments.serializers.department_retrieve import (
+    DepartmentRetrieveSerializer,
+)
 from src.apps.departments.models import DepartmentModel
 from src.apps.departments.serializers.department import DepartmentSerializer
-from src.apps.departments.serializers.department_tree import DepartmentTreeSerializer
 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
@@ -47,7 +49,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
                 required=False,
             ),
         ],
-        responses={status.HTTP_200_OK: DepartmentTreeSerializer},
+        responses={status.HTTP_200_OK: DepartmentRetrieveSerializer},
     )
     def retrieve(self, request: Request, *args: tuple, **kwargs: dict[str, str]):
         """Retrieve a department instance with its tree structure."""
@@ -56,5 +58,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         except Http404:
             raise NotFound(_("Department not found."))
 
-        serializer = DepartmentTreeSerializer(instance, context={"request": request})
+        serializer = DepartmentRetrieveSerializer(
+            instance, context={"request": request}
+        )
         return Response(serializer.data)

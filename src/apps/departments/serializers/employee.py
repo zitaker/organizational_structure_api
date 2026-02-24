@@ -7,6 +7,7 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from src.apps.departments.models import DepartmentModel, EmployeeModel
+from src.apps.departments.services.employee import EmployeeService
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
@@ -68,35 +69,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = ["id", "department", "full_name", "position", "hired_at", "created_at"]
         read_only_fields = ["id", "created_at"]
 
-    def validate_full_name(self, value: str) -> str:
+    def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         """
-        Full name check: must be formatted correctly.
+        Validate employee data using service layer.
         """
-        if len(value.split()) < 2:
-            raise serializers.ValidationError(
-                _("Please enter both first name and last name.")
-            )
-
-        return value
-
-    def validate_hired_at(self, value):
-        """
-        Validate that hire date is not earlier than 2010-01-01.
-        """
-        if value:
-            min_date = date(2010, 1, 1)
-            if value < min_date:
-                raise serializers.ValidationError(
-                    _("Hire date cannot be earlier than 2010-01-01.")
-                )
-        return value
-
-    def create(self, validated_data: dict[str, Any]) -> EmployeeModel:
-        """Create and return a new employee instance."""
-        return super().create(validated_data)
-
-    def update(
-        self, instance: EmployeeModel, validated_data: dict[str, Any]
-    ) -> EmployeeModel:
-        """Update and return an existing employee instance."""
-        return super().update(instance, validated_data)
+        service = EmployeeService()
+        service.validate_employee_data(
+            full_name=attrs.get("full_name"),
+            hired_at=attrs.get("hired_at"),
+        )
+        return attrs

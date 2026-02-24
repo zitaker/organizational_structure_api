@@ -8,10 +8,10 @@ from rest_framework import serializers
 
 from src.apps.departments.models import DepartmentModel
 from src.apps.departments.serializers.employee import EmployeeSerializer
-from src.apps.departments.services.department import DepartmentTreeService
+from src.apps.departments.services.department import DepartmentRetrieveService
 
 
-class DepartmentTreeSerializer(serializers.ModelSerializer):
+class DepartmentRetrieveSerializer(serializers.ModelSerializer):
     """
     Serializer for detailed department information with tree structure.
     """
@@ -46,10 +46,6 @@ class DepartmentTreeSerializer(serializers.ModelSerializer):
             "subdepartments",
         ]
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.service = DepartmentTreeService()
-
     @extend_schema_field(serializers.ListField(child=serializers.DictField()))
     def get_subdepartments(self, obj: DepartmentModel) -> list[dict[str, Any]]:
         """
@@ -59,10 +55,6 @@ class DepartmentTreeSerializer(serializers.ModelSerializer):
         """
         request = self.context.get("request")
         depth_param = request.query_params.get("depth") if request else None
-        max_depth = self.service.validate_depth(depth_param)
-        if max_depth == 0:
-            return []
-        tree = self.service.build_subdepartment_tree(obj, max_depth=max_depth)
-        if max_depth and max_depth > 0:
-            self.service.validate_depth_against_tree(obj, max_depth)
-        return tree
+
+        service = DepartmentRetrieveService()
+        return service.get_department_tree(obj, depth_param)
