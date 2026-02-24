@@ -11,11 +11,11 @@ from rest_framework.exceptions import NotFound
 from rest_framework.request import Request
 from rest_framework.response import Response
 
-from apps.departments.serializers.department_retrieve import (
-    DepartmentRetrieveSerializer,
-)
 from src.apps.departments.models import DepartmentModel
 from src.apps.departments.serializers.department import DepartmentSerializer
+from src.apps.departments.serializers.department_retrieve import (
+    DepartmentRetrieveSerializer,
+)
 
 
 class DepartmentViewSet(viewsets.ModelViewSet):
