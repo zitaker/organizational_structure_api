@@ -58,7 +58,9 @@ class DepartmentSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         """
-        Validate the uniqueness of department name within the same parent department.
+        Uniqueness of department name within the same parent department.
+        Department cannot be parent of itself.
+        No cycles in the tree (cannot move department into its own subtree).
         """
         name = attrs.get("name")
         parent = attrs.get("parent")
@@ -78,6 +80,20 @@ class DepartmentSerializer(serializers.ModelSerializer):
                         )
                     }
                 )
+
+        if parent and self.instance and parent.pk == self.instance.pk:
+            raise serializers.ValidationError(
+                {"parent": _("Department cannot be parent of self.")}
+            )
+
+        if parent and self.instance:
+            current_parent = parent
+            while current_parent:
+                if current_parent.pk == self.instance.pk:
+                    raise serializers.ValidationError(
+                        {"parent": _("Cannot move department into its own subtree.")}
+                    )
+                current_parent = current_parent.parent
         return attrs
 
     def create(self, validated_data: dict[str, Any]) -> DepartmentModel:
