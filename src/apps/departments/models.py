@@ -19,7 +19,7 @@ class DepartmentModel(models.Model):
         null=True,
         blank=True,
         verbose_name=_("Parent"),
-        related_name="subdepartments",
+        related_name="children",
     )
     created_at = models.DateTimeField(_("Date of creation"), auto_now_add=True)
 

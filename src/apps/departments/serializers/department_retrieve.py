@@ -3,11 +3,9 @@
 from typing import Any
 
 from django.utils.translation import gettext_lazy as _
-from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from src.apps.departments.models import DepartmentModel
-from src.apps.departments.serializers.employee import EmployeeSerializer
 from src.apps.departments.services.department import DepartmentRetrieveService
 
 
@@ -16,21 +14,22 @@ class DepartmentRetrieveSerializer(serializers.ModelSerializer):
     Serializer for detailed department information with tree structure.
     """
 
-    subdepartments = serializers.SerializerMethodField(
-        label=_("Subdepartments"),
+    service = DepartmentRetrieveService()
+
+    children = serializers.SerializerMethodField(
+        label=_("Children"),
         help_text=_("Nested subdepartments"),
     )
-    employees = EmployeeSerializer(
+
+    employees = serializers.SerializerMethodField(
         label=_("Employees"),
         help_text=_("Employees of the department"),
-        many=True,
         read_only=True,
-        source="employees.all",
     )
+
     employees_count = serializers.IntegerField(
         label=_("Employees count"),
         help_text=_("Number of employees in the department"),
-        source="employees.count",
         read_only=True,
     )
 
@@ -43,18 +42,15 @@ class DepartmentRetrieveSerializer(serializers.ModelSerializer):
             "created_at",
             "employees_count",
             "employees",
-            "subdepartments",
+            "children",
         ]
 
-    @extend_schema_field(serializers.ListField(child=serializers.DictField()))
-    def get_subdepartments(self, obj: DepartmentModel) -> list[dict[str, Any]]:
-        """
-        Get subdepartments tree with depth limitation.
-        :param obj: DepartmentModel instance for which to get subdepartments.
-        :return: List of subdepartments with nested structure.
-        """
+    def get_children(self, obj: DepartmentModel) -> list[dict[str, Any]]:
+        """Get children departments tree."""
         request = self.context.get("request")
-        depth_param = request.query_params.get("depth") if request else None
+        return self.service.script_distributor(obj, request, field="children")
 
-        service = DepartmentRetrieveService()
-        return service.get_department_tree(obj, depth_param)
+    def get_employees(self, obj: DepartmentModel) -> list:
+        """Get employees with filtering and sorting."""
+        request = self.context.get("request")
+        return self.service.script_distributor(obj, request, field="employees")

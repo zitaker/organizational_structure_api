@@ -78,3 +78,12 @@ class EmployeeSerializer(serializers.ModelSerializer):
             hired_at=attrs.get("hired_at"),
         )
         return attrs
+
+
+class EmployeeCreateSerializer(EmployeeSerializer):
+    """Serializer for creating an employee."""
+
+    department = None
+
+    class Meta(EmployeeSerializer.Meta):
+        fields = ["full_name", "position", "hired_at"]

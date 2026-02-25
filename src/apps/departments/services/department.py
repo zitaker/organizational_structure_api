@@ -105,19 +105,38 @@ class DepartmentService:
 class DepartmentRetrieveService:
     """Service class for Department tree operations."""
 
-    def get_department_tree(
+    def script_distributor(
         self,
         department: DepartmentModel,
-        depth_param: Optional[str] = None,
+        request: Optional[Any] = None,
+        field: str = None,
+    ) -> Any:
+        """
+        Distribute requests to appropriate methods based on field parameter.
+        :param department: DepartmentModel instance
+        :param request: Request object for query params
+        :param field: Which field data to return ("children" or "employees")
+        :return: Data for the requested field
+        """
+        if field == "children":
+            return self._get_children(department, request)
+        elif field == "employees":
+            return self._get_employees(department, request)
+        return []
+
+    def _get_children(
+        self,
+        department: DepartmentModel,
+        request: Optional[Any] = None,
     ) -> list[dict[str, Any]]:
         """
-        Get department tree with depth validation and building.
+        Get children departments tree with depth limitation.
         :param department: The department to build tree for.
-        :param depth_param: Raw depth parameter from request.
-        :return: List of subdepartments with nested structure.
-        :raises ValidationError: If depth validation fails.
+        :param request: Request object for query params.
+        :return: List of children departments with nested structure.
         """
-        max_depth = self._validate_depth(depth_param)
+        depth_param = request.query_params.get("depth") if request else None
+        max_depth = self._validate_depth(depth_param, max_allowed=5)
 
         if max_depth == 0:
             return []
@@ -129,19 +148,53 @@ class DepartmentRetrieveService:
 
         return tree
 
-    def _validate_depth(self, depth_param: Optional[str]) -> Optional[int]:
+    def _get_employees(
+        self,
+        department: DepartmentModel,
+        request: Optional[Any] = None,
+    ) -> list:
+        """
+        Get employees for department with filtering and sorting.
+        :param department: DepartmentModel instance
+        :param request: Request object for query params
+        :return: List of serialized employees
+        """
+        from src.apps.departments.serializers.employee import EmployeeSerializer
+
+        if not request:
+            return EmployeeSerializer(department.employees.all(), many=True).data
+
+        include_employees = request.query_params.get(
+            "include_employees", "true"
+        ).lower()
+
+        if include_employees == "false":
+            return []
+
+        sort_by = request.query_params.get("sort_employees_by", "created_at")
+        if sort_by not in ["created_at", "full_name"]:
+            sort_by = "created_at"
+
+        employees = department.employees.all().order_by(sort_by)
+        return EmployeeSerializer(employees, many=True).data
+
+    def _validate_depth(self, depth_param: Optional[str], max_allowed: int = 5) -> int:
         """
         Validate and parse depth parameter.
         :param depth_param: Raw depth parameter from request query string.
-        :return: Parsed depth value or None if parameter not provided.
+        :param max_allowed: Maximum allowed depth value.
+        :return: Parsed depth value or 1 if parameter not provided.
+        :raises ValidationError: If depth validation fails.
         """
         if depth_param is None:
-            return None
+            return 1
 
         try:
             depth = int(depth_param)
             if depth < 0:
                 raise ValidationError(_("Depth must be 0 or positive integer."))
+            if depth > max_allowed:
+                raise ValidationError(_(f"Depth cannot exceed {max_allowed}."))
             return depth
         except (ValueError, TypeError):
             raise ValidationError(_("Depth must be a valid integer."))
@@ -153,32 +206,32 @@ class DepartmentRetrieveService:
         max_depth: Optional[int] = None,
     ) -> list[dict[str, Any]]:
         """
-        Recursively build subdepartment tree structure.
+        Recursively build children department tree structure.
         :param department: The department to build tree for.
         :param current_depth: Current depth in recursion (default 1).
-        :param max_depth: Maximum depth to traverse (None for unlimited).
-        :return: List of subdepartment dictionaries with nested structure.
+        :param max_depth: Maximum depth to traverse.
+        :return: List of children department dictionaries with nested structure.
         """
         if max_depth is not None and current_depth > max_depth:
             return []
 
-        subdepartments = department.subdepartments.all()  # type: ignore
-        if not subdepartments.exists():
+        children = department.children.all()
+        if not children.exists():
             return []
 
         result = []
-        for subdept in subdepartments:
-            subdept_data = {
-                "id": subdept.id,
-                "name": subdept.name,
-                "parent": subdept.parent_id,
-                "created_at": subdept.created_at,
-                "employees_count": subdept.employees.count(),
-                "subdepartments": self._build_department_tree(
-                    subdept, current_depth + 1, max_depth
+        for child in children:
+            child_data = {
+                "id": child.id,
+                "name": child.name,
+                "parent": child.parent_id,
+                "created_at": child.created_at,
+                "employees_count": child.employees.count(),
+                "children": self._build_department_tree(
+                    child, current_depth + 1, max_depth
                 ),
             }
-            result.append(subdept_data)
+            result.append(child_data)
 
         return result
 
@@ -206,13 +259,13 @@ class DepartmentRetrieveService:
         :param current_depth: Current depth in recursion (default 1).
         :return: Maximum depth of the tree.
         """
-        subdepartments = department.subdepartments.all()  # type: ignore
-        if not subdepartments.exists():
+        children = department.children.all()
+        if not children.exists():
             return current_depth
 
-        max_sub_depth = current_depth
-        for sub in subdepartments:
-            sub_depth = self._get_max_depth(sub, current_depth + 1)
-            max_sub_depth = max(max_sub_depth, sub_depth)
+        max_child_depth = current_depth
+        for child in children:
+            child_depth = self._get_max_depth(child, current_depth + 1)
+            max_child_depth = max(max_child_depth, child_depth)
 
-        return max_sub_depth
+        return max_child_depth

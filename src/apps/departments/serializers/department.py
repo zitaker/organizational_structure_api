@@ -12,6 +12,8 @@ from src.apps.departments.services.department import DepartmentService
 class DepartmentSerializer(serializers.ModelSerializer):
     """Serializer for DepartmentModel with all fields."""
 
+    service = DepartmentService()
+
     name = serializers.CharField(
         label=_("Name"),
         help_text=_("Department name"),
@@ -48,8 +50,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
         """
         Validate department data using service layer.
         """
-        service = DepartmentService()
-        service.validate_department_data(
+        self.service.validate_department_data(
             name=attrs.get("name"), parent=attrs.get("parent"), instance=self.instance
         )
         return attrs
