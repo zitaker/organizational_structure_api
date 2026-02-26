@@ -12,6 +12,8 @@ from src.apps.departments.services.employee import EmployeeService
 class EmployeeSerializer(serializers.ModelSerializer):
     """Serializer for EmployeeModel with all fields."""
 
+    service = EmployeeService()
+
     department = serializers.PrimaryKeyRelatedField(
         label=_("Department"),
         help_text=_("Department where employee works"),
@@ -72,8 +74,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         """
         Validate employee data using service layer.
         """
-        service = EmployeeService()
-        service.validate_employee_data(
+        self.service.validate_employee_data(
             full_name=attrs.get("full_name"),
             hired_at=attrs.get("hired_at"),
         )
