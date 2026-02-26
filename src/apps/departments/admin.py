@@ -1,3 +1,5 @@
+"""Admin panel for department users."""
+
 from django.contrib import admin
 
 from src.apps.departments.models import DepartmentModel, EmployeeModel

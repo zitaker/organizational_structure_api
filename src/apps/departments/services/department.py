@@ -3,10 +3,12 @@
 import re
 from typing import Any, Optional
 
+from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-from rest_framework.exceptions import ValidationError
+from rest_framework.exceptions import NotFound, ValidationError
 
 from src.apps.departments.models import DepartmentModel
+from src.apps.departments.serializers.employee import EmployeeSerializer
 
 
 class DepartmentService:
@@ -109,7 +111,7 @@ class DepartmentRetrieveService:
         self,
         department: DepartmentModel,
         request: Optional[Any] = None,
-        field: str = None,
+        field: Optional[str] = None,
     ) -> Any:
         """
         Distribute requests to appropriate methods based on field parameter.
@@ -159,10 +161,10 @@ class DepartmentRetrieveService:
         :param request: Request object for query params
         :return: List of serialized employees
         """
-        from src.apps.departments.serializers.employee import EmployeeSerializer
-
         if not request:
-            return EmployeeSerializer(department.employees.all(), many=True).data
+            employees_queryset = getattr(department, "employees").all()
+            serializer = EmployeeSerializer(employees_queryset, many=True)
+            return serializer.data  # type: ignore
 
         include_employees = request.query_params.get(
             "include_employees", "true"
@@ -175,8 +177,8 @@ class DepartmentRetrieveService:
         if sort_by not in ["created_at", "full_name"]:
             sort_by = "created_at"
 
-        employees = department.employees.all().order_by(sort_by)
-        return EmployeeSerializer(employees, many=True).data
+        employees = getattr(department, "employees").all().order_by(sort_by)
+        return EmployeeSerializer(employees, many=True).data  # type: ignore
 
     def _validate_depth(self, depth_param: Optional[str], max_allowed: int = 5) -> int:
         """
@@ -215,14 +217,14 @@ class DepartmentRetrieveService:
         if max_depth is not None and current_depth > max_depth:
             return []
 
-        children = department.children.all()
+        children = getattr(department, "children").all()
         if not children.exists():
             return []
 
         result = []
         for child in children:
             child_data = {
-                "id": child.id,
+                "id": child.pk,
                 "name": child.name,
                 "parent": child.parent_id,
                 "created_at": child.created_at,
@@ -259,7 +261,7 @@ class DepartmentRetrieveService:
         :param current_depth: Current depth in recursion (default 1).
         :return: Maximum depth of the tree.
         """
-        children = department.children.all()
+        children = getattr(department, "children").all()
         if not children.exists():
             return current_depth
 
@@ -269,3 +271,78 @@ class DepartmentRetrieveService:
             max_child_depth = max(max_child_depth, child_depth)
 
         return max_child_depth
+
+
+class DepartmentDeleteService:
+    """Service class for department deletion operations."""
+
+    @staticmethod
+    def delete_department_cascade(department: DepartmentModel) -> None:
+        """
+        Delete department with all its employees and child departments.
+        :param department: Department to delete
+        """
+        department.delete()
+
+    @staticmethod
+    def delete_department_reassign(
+        department: DepartmentModel, reassign_to_id: Optional[str]
+    ) -> None:
+        """
+        Delete department and reassign its employees to another department.
+        :param department: Department to delete
+        :param reassign_to_id: ID of target department for employee reassignment
+        :raises ValidationError: If reassign_to_id is missing
+        or points to same department
+        :raises NotFound: If target department doesn't exist
+        """
+        if not reassign_to_id:
+            raise ValidationError(
+                {
+                    "reassign_to_department_id": _(
+                        "This field is required when mode is 'reassign'."
+                    )
+                }
+            )
+
+        try:
+            target_department = DepartmentModel.objects.get(id=reassign_to_id)
+        except DepartmentModel.DoesNotExist:
+            raise NotFound(_("Target department not found."))
+
+        if target_department.pk == department.pk:
+            raise ValidationError(
+                {
+                    "reassign_to_department_id": _(
+                        "Cannot reassign employees to "
+                        "the same department being deleted."
+                    )
+                }
+            )
+
+        with transaction.atomic():
+            employees_manager = getattr(department, "employees")
+            employees_manager.update(department=target_department)
+            department.delete()
+
+    def delete_department(
+        self,
+        department: DepartmentModel,
+        mode: str,
+        reassign_to_id: Optional[str] = None,
+    ) -> None:
+        """
+        Delete department based on specified mode.
+        :param department: Department to delete
+        :param mode: Delete mode ('cascade' or 'reassign')
+        :param reassign_to_id: Target department ID for reassign mode
+        :raises ValidationError: If mode is invalid or parameters are missing
+        """
+        if mode == "cascade":
+            self.delete_department_cascade(department)
+        elif mode == "reassign":
+            self.delete_department_reassign(department, reassign_to_id)
+        else:
+            raise ValidationError(
+                {"mode": _("Mode must be either 'cascade' or 'reassign'.")}
+            )

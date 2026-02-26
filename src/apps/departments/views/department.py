@@ -9,7 +9,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, ValidationError
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -22,6 +22,7 @@ from src.apps.departments.serializers.employee import (
     EmployeeCreateSerializer,
     EmployeeSerializer,
 )
+from src.apps.departments.services.department import DepartmentDeleteService
 from src.apps.departments.services.employee import EmployeeService
 
 
@@ -36,6 +37,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         HTTPMethod.PATCH.lower(),
         HTTPMethod.DELETE.lower(),
     ]
+    delete_service = DepartmentDeleteService()
     service = EmployeeService()
 
     @extend_schema(
@@ -123,3 +125,60 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         )
         response_serializer = EmployeeSerializer(employee)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
+
+    @extend_schema(
+        description=_("Delete department with options"),
+        parameters=[
+            OpenApiParameter(
+                name="id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.PATH,
+                description=_("A unique integer identifying the department."),
+            ),
+            OpenApiParameter(
+                name="mode",
+                type=OpenApiTypes.STR,
+                location=OpenApiParameter.QUERY,
+                description=_(
+                    "Delete mode: 'cascade' - delete department, "
+                    "all employees and child departments; "
+                    "'reassign' - delete department and move "
+                    "employees to reassign_to_department_id"
+                ),
+                required=True,
+                enum=["cascade", "reassign"],
+            ),
+            OpenApiParameter(
+                name="reassign_to_department_id",
+                type=OpenApiTypes.INT,
+                location=OpenApiParameter.QUERY,
+                description=_(
+                    "Target department ID for employees (required if mode=reassign)"
+                ),
+                required=False,
+            ),
+        ],
+        responses={
+            status.HTTP_204_NO_CONTENT: None,
+            status.HTTP_400_BAD_REQUEST: OpenApiTypes.OBJECT,
+            status.HTTP_404_NOT_FOUND: OpenApiTypes.OBJECT,
+        },
+    )
+    def destroy(self, request: Request, *args: tuple, **kwargs: dict[str, str]):
+        """
+        Delete a department with cascade or reassign options.
+        Query parameters:
+        - mode: 'cascade' or 'reassign'
+        - reassign_to_department_id: required if mode='reassign'
+        """
+        department = self.get_object()
+        mode = request.query_params.get("mode")
+
+        if not mode:
+            raise ValidationError(
+                {"mode": _("Mode parameter is required (cascade or reassign).")}
+            )
+
+        reassign_to_id = request.query_params.get("reassign_to_department_id")
+        self.delete_service.delete_department(department, mode, reassign_to_id)
+        return Response(status=status.HTTP_204_NO_CONTENT)
