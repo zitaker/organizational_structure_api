@@ -6,7 +6,10 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from src.apps.departments.models import DepartmentModel
-from src.apps.departments.services.department import DepartmentRetrieveService
+from src.apps.departments.services.department import (
+    DepartmentEmployeeService,
+    DepartmentQueryService,
+)
 
 
 class DepartmentRetrieveSerializer(serializers.ModelSerializer):
@@ -14,7 +17,8 @@ class DepartmentRetrieveSerializer(serializers.ModelSerializer):
     Serializer for detailed department information with tree structure.
     """
 
-    service = DepartmentRetrieveService()
+    query_service = DepartmentQueryService()
+    employee_service = DepartmentEmployeeService()
 
     children = serializers.SerializerMethodField(
         label=_("Children"),
@@ -48,9 +52,28 @@ class DepartmentRetrieveSerializer(serializers.ModelSerializer):
     def get_children(self, obj: DepartmentModel) -> list[dict[str, Any]]:
         """Get children departments tree."""
         request = self.context.get("request")
-        return self.service.script_distributor(obj, request, field="children")
+        depth = None
+        if request:
+            depth_param = request.query_params.get("depth")
+            depth = depth_param
+
+        tree_data = self.query_service.get_department_with_children(obj, depth=depth)
+        return tree_data.get("children", [])
 
     def get_employees(self, obj: DepartmentModel) -> list:
         """Get employees with filtering and sorting."""
         request = self.context.get("request")
-        return self.service.script_distributor(obj, request, field="employees")
+
+        include_employees = True
+        sort_by = "created_at"
+
+        if request:
+            include_param = request.query_params.get(
+                "include_employees", "true"
+            ).lower()
+            include_employees = include_param == "true"
+            sort_by = request.query_params.get("sort_employees_by", "created_at")
+
+        return self.employee_service.get_employees(
+            obj, include_employees=include_employees, sort_by=sort_by
+        )
