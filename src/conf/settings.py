@@ -166,7 +166,10 @@ WSGI_APPLICATION = "src.conf.wsgi.application"
 
 DATABASES = {
     "default": {
-        **env.db_url("DEFAULT_DB", default="sqlite:///conf.sqlite3"),
+        **env.db_url(
+            "DEFAULT_DB",
+            default="postgresql://qwerty:password@postgres:5432/organizational_structure",
+        ),
     }
 }
 
