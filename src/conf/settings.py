@@ -168,7 +168,9 @@ DATABASES = {
     "default": {
         **env.db_url(
             "DEFAULT_DB",
-            default="postgresql://qwerty:password@postgres:5432/organizational_structure",
+            default=(
+                "postgresql://qwerty:password@postgres:5432/organizational_structure"
+            ),
         ),
     }
 }

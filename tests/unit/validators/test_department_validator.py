@@ -6,7 +6,7 @@ import pytest
 from django.utils.translation import gettext_lazy as _
 from rest_framework.exceptions import ValidationError
 
-from src.apps.departments.services.department import DepartmentValidator
+from src.apps.departments.validators import DepartmentValidator
 from tests.factories import DepartmentFactory
 
 
