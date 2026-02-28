@@ -6,13 +6,13 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from src.apps.departments.models import DepartmentModel, EmployeeModel
-from src.apps.departments.services.employee import EmployeeService
+from src.apps.departments.validators import EmployeeValidator
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
     """Serializer for EmployeeModel with all fields."""
 
-    service = EmployeeService()
+    validator = EmployeeValidator()
 
     department = serializers.PrimaryKeyRelatedField(
         label=_("Department"),
@@ -74,7 +74,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         """
         Validate employee data using service layer.
         """
-        self.service.validate_employee_data(
+        self.validator.validate_employee_data(
             full_name=attrs.get("full_name"),
             hired_at=attrs.get("hired_at"),
         )

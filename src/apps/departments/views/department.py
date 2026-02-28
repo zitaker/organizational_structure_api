@@ -38,7 +38,7 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         HTTPMethod.DELETE.lower(),
     ]
     delete_service = DepartmentDeleteService()
-    service = EmployeeService()
+    employee_service = EmployeeService()
 
     @extend_schema(
         description=_("Retrieves a department with its tree structure."),
@@ -120,7 +120,8 @@ class DepartmentViewSet(viewsets.ModelViewSet):
         department: DepartmentModel = self.get_object()
         create_serializer = self.get_serializer(data=request.data)
         create_serializer.is_valid(raise_exception=True)
-        employee: EmployeeModel = self.service.create_employee(
+
+        employee: EmployeeModel = self.employee_service.create_employee(
             department=department, **create_serializer.validated_data
         )
         response_serializer = EmployeeSerializer(employee)

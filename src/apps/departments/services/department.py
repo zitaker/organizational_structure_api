@@ -1,6 +1,6 @@
 """Service classes for Department business logic."""
 
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from django.db import transaction
 from django.utils.translation import gettext_lazy as _
@@ -9,35 +9,6 @@ from rest_framework.exceptions import NotFound, ValidationError
 from src.apps.departments.models import DepartmentModel
 from src.apps.departments.serializers.employee import EmployeeSerializer
 from src.apps.departments.validators import DepartmentValidator
-
-
-class DepartmentCreateUpdateService:
-    """Service class for creating and updating departments."""
-
-    validator = DepartmentValidator()
-
-    def validate_department_data(
-        self,
-        name: Optional[str] = None,
-        parent: Optional[DepartmentModel] = None,
-        instance: Optional[DepartmentModel] = None,
-    ) -> None:
-        """
-        Validate all department data.
-        :param name: Department name to validate.
-        :param parent: Parent department.
-        :param instance: Current department instance for update operations.
-        :raises ValidationError: If any validation fails.
-        """
-        if name:
-            self.validator.validate_name_format(name)
-
-            if parent is not None:
-                self.validator.validate_unique_name_in_parent(name, parent, instance)
-
-        if parent and instance:
-            self.validator.validate_no_self_parent(parent, instance)
-            self.validator.validate_no_cycle(parent, instance)
 
 
 class DepartmentTreeService:
@@ -99,7 +70,8 @@ class DepartmentTreeService:
 class DepartmentQueryService:
     """Service class for department queries with parameters."""
 
-    tree_service = DepartmentTreeService()
+    service = DepartmentTreeService()
+    validator = DepartmentValidator()
 
     def get_department_with_children(
         self,
@@ -115,16 +87,14 @@ class DepartmentQueryService:
         :return: Department data with children tree.
         :raises ValidationError: If depth validation fails.
         """
-        requested_depth = self._validate_depth(depth, max_allowed_depth)
+        requested_depth = self.validator.validate_depth(depth, max_allowed_depth)
 
         if requested_depth == 0:
             children = []
         else:
             if requested_depth > 0:
                 self._validate_depth_against_tree(department, requested_depth)
-            children = self.tree_service.build_tree(
-                department, max_depth=requested_depth
-            )
+            children = self.service.build_tree(department, max_depth=requested_depth)
 
         employees_manager = getattr(department, "employees", None)
         employees_count = (
@@ -140,33 +110,6 @@ class DepartmentQueryService:
             "children": children,
         }
 
-    def _validate_depth(
-        self, depth: Optional[Union[str, int]], max_allowed: int = 5
-    ) -> int:
-        """
-        Validate and parse depth parameter.
-        :param depth: Depth value (can be string from query param).
-        :param max_allowed: Maximum allowed depth value.
-        :return: Validated depth value.
-        :raises ValidationError: If depth validation fails.
-        """
-        if depth is None:
-            return 1
-
-        try:
-            depth_value = int(depth)
-        except (ValueError, TypeError):
-            raise ValidationError(_("Depth must be a valid integer."))
-
-        if depth_value < 0:
-            raise ValidationError(_("Depth must be 0 or positive integer."))
-        if depth_value > max_allowed:
-            raise ValidationError(
-                _("Depth cannot exceed %(max)d.") % {"max": max_allowed}
-            )
-
-        return depth_value
-
     def _validate_depth_against_tree(
         self, department: DepartmentModel, requested_depth: int
     ) -> None:
@@ -176,7 +119,7 @@ class DepartmentQueryService:
         :param requested_depth: The depth value requested.
         :raises ValidationError: If requested depth exceeds maximum available depth.
         """
-        actual_depth = self.tree_service.get_max_depth(department)
+        actual_depth = self.service.get_max_depth(department)
         if requested_depth > actual_depth:
             raise ValidationError(
                 _("Maximum available depth is %(max)d.") % {"max": actual_depth}
@@ -185,6 +128,8 @@ class DepartmentQueryService:
 
 class DepartmentEmployeeService:
     """Service class for department employee operations."""
+
+    serializer = EmployeeSerializer
 
     def get_employees(
         self,
@@ -211,11 +156,13 @@ class DepartmentEmployeeService:
         else:
             employees_queryset = employees_queryset.order_by("created_at")
 
-        return EmployeeSerializer(employees_queryset, many=True).data  # type: ignore
+        return self.serializer(employees_queryset, many=True).data  # type: ignore
 
 
 class DepartmentDeleteService:
     """Service class for department deletion operations."""
+
+    model = DepartmentModel
 
     @staticmethod
     def delete_department_cascade(department: DepartmentModel) -> None:
@@ -225,9 +172,8 @@ class DepartmentDeleteService:
         """
         department.delete()
 
-    @staticmethod
     def delete_department_reassign(
-        department: DepartmentModel, reassign_to_id: Optional[str]
+        self, department: DepartmentModel, reassign_to_id: Optional[str]
     ) -> None:
         """
         Delete department and reassign its employees to another department.
@@ -247,8 +193,8 @@ class DepartmentDeleteService:
             )
 
         try:
-            target_department = DepartmentModel.objects.get(id=reassign_to_id)
-        except DepartmentModel.DoesNotExist:
+            target_department = self.model.objects.get(id=reassign_to_id)
+        except self.model.DoesNotExist:
             raise NotFound(_("Target department not found."))
 
         if target_department.pk == department.pk:

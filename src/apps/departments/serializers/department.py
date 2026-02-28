@@ -6,13 +6,13 @@ from django.utils.translation import gettext_lazy as _
 from rest_framework import serializers
 
 from src.apps.departments.models import DepartmentModel
-from src.apps.departments.services.department import DepartmentCreateUpdateService
+from src.apps.departments.validators import DepartmentValidator
 
 
 class DepartmentSerializer(serializers.ModelSerializer):
     """Serializer for DepartmentModel with all fields."""
 
-    service = DepartmentCreateUpdateService()
+    validator = DepartmentValidator()
 
     name = serializers.CharField(
         label=_("Name"),
@@ -50,7 +50,7 @@ class DepartmentSerializer(serializers.ModelSerializer):
         """
         Validate department data using service layer.
         """
-        self.service.validate_department_data(
+        self.validator.validate_department_data(
             name=attrs.get("name"), parent=attrs.get("parent"), instance=self.instance
         )
         return attrs
