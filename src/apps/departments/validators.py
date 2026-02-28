@@ -99,8 +99,7 @@ class DepartmentValidator:
         """
         if name:
             self._validate_name_format(name)
-            if parent is not None:
-                self._validate_unique_name_in_parent(name, parent, instance)
+            self._validate_unique_name_in_parent(name, parent, instance)
 
         if parent and instance:
             self._validate_no_self_parent(parent, instance)
