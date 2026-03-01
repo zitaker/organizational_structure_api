@@ -2,17 +2,19 @@
 
 from typing import Any, Optional
 
-from django.db import transaction
 from django.utils.translation import gettext_lazy as _
-from rest_framework.exceptions import NotFound, ValidationError
+from rest_framework.exceptions import ValidationError
 
 from src.apps.departments.models import DepartmentModel
+from src.apps.departments.repositories import DepartmentDatabase
 from src.apps.departments.serializers.employee import EmployeeSerializer
 from src.apps.departments.validators import DepartmentValidator
 
 
 class DepartmentTreeService:
     """Service class for building department tree structure."""
+
+    database = DepartmentDatabase()
 
     def build_tree(
         self,
@@ -30,8 +32,8 @@ class DepartmentTreeService:
         if max_depth is not None and current_depth > max_depth:
             return []
 
-        children = getattr(department, "children").all()
-        if not children.exists():
+        children = self.database.get_children(department)
+        if not children:
             return []
 
         result = []
@@ -39,9 +41,9 @@ class DepartmentTreeService:
             child_data = {
                 "id": child.pk,
                 "name": child.name,
-                "parent": child.parent_id,
+                "parent": getattr(child, "parent_id", None),
                 "created_at": child.created_at,
-                "employees_count": child.employees.count(),
+                "employees_count": self.database.get_employees_count(child),
                 "children": self.build_tree(child, current_depth + 1, max_depth),
             }
             result.append(child_data)
@@ -55,8 +57,9 @@ class DepartmentTreeService:
         :param current_depth: Current depth in recursion (default 1).
         :return: Maximum depth of the tree.
         """
-        children = getattr(department, "children").all()
-        if not children.exists():
+
+        children = self.database.get_children(department)
+        if not children:
             return current_depth
 
         max_child_depth = current_depth
@@ -130,6 +133,7 @@ class DepartmentEmployeeService:
     """Service class for department employee operations."""
 
     serializer = EmployeeSerializer
+    database = DepartmentDatabase()
 
     def get_employees(
         self,
@@ -147,30 +151,15 @@ class DepartmentEmployeeService:
         if not include_employees:
             return []
 
-        employees_queryset = getattr(department, "employees").all()
+        employees = self.database.get_sorted_employees(department, sort_by)
 
-        if sort_by == "full_name":
-            employees_queryset = employees_queryset.order_by("full_name")
-        elif sort_by == "created_at":
-            employees_queryset = employees_queryset.order_by("created_at")
-        else:
-            employees_queryset = employees_queryset.order_by("created_at")
-
-        return self.serializer(employees_queryset, many=True).data  # type: ignore
+        return self.serializer(employees, many=True).data  # type: ignore
 
 
 class DepartmentDeleteService:
     """Service class for department deletion operations."""
 
-    model = DepartmentModel
-
-    @staticmethod
-    def delete_department_cascade(department: DepartmentModel) -> None:
-        """
-        Delete department with all its employees and child departments.
-        :param department: Department to delete
-        """
-        department.delete()
+    database = DepartmentDatabase()
 
     def delete_department_reassign(
         self, department: DepartmentModel, reassign_to_id: Optional[str]
@@ -183,7 +172,7 @@ class DepartmentDeleteService:
         or points to same department
         :raises NotFound: If target department doesn't exist
         """
-        if not reassign_to_id:
+        if reassign_to_id is None:
             raise ValidationError(
                 {
                     "reassign_to_department_id": _(
@@ -192,10 +181,9 @@ class DepartmentDeleteService:
                 }
             )
 
-        try:
-            target_department = self.model.objects.get(id=reassign_to_id)
-        except self.model.DoesNotExist:
-            raise NotFound(_("Target department not found."))
+        target_department: DepartmentModel = self.database.get_target_department(
+            reassign_to_id
+        )
 
         if target_department.pk == department.pk:
             raise ValidationError(
@@ -207,10 +195,7 @@ class DepartmentDeleteService:
                 }
             )
 
-        with transaction.atomic():
-            employees_manager = getattr(department, "employees")
-            employees_manager.update(department=target_department)
-            department.delete()
+        self.database.reassign_and_delete(department, target_department)
 
     def delete_department(
         self,
@@ -226,10 +211,6 @@ class DepartmentDeleteService:
         :raises ValidationError: If mode is invalid or parameters are missing
         """
         if mode == "cascade":
-            self.delete_department_cascade(department)
+            self.database.delete_department_cascade(department)
         elif mode == "reassign":
             self.delete_department_reassign(department, reassign_to_id)
-        else:
-            raise ValidationError(
-                {"mode": _("Mode must be either 'cascade' or 'reassign'.")}
-            )
