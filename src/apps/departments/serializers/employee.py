@@ -75,6 +75,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
         Validate employee data using service layer.
         """
         self.validator.validate_employee_data(
+            position=attrs["position"],
             full_name=attrs.get("full_name"),
             hired_at=attrs.get("hired_at"),
         )

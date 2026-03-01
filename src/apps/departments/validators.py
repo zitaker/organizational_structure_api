@@ -23,9 +23,7 @@ class DepartmentValidator:
         :raises ValidationError: If name contains invalid characters.
         """
         if not re.match(r"^[a-zA-Zа-яА-ЯёЁ\s]+$", name):
-            raise ValidationError(
-                {"name": _("Name can only contain letters and spaces.")}
-            )
+            raise ValidationError({"name": _("Can only contain letters and spaces.")})
 
     def _validate_unique_name_in_parent(
         self,
@@ -46,27 +44,7 @@ class DepartmentValidator:
             queryset = queryset.exclude(pk=instance.pk)
 
         if queryset.exists():
-            raise ValidationError(
-                {
-                    "name": _(
-                        "Department with this name already "
-                        "exists in this parent department."
-                    )
-                }
-            )
-
-    @staticmethod
-    def _validate_no_self_parent(
-        parent: DepartmentModel, instance: DepartmentModel
-    ) -> None:
-        """
-        Validate that department cannot be parent of itself.
-        :param parent: Proposed parent department.
-        :param instance: Current department instance.
-        :raises ValidationError: If parent is the same as instance.
-        """
-        if parent.pk == instance.pk:
-            raise ValidationError({"parent": _("Department cannot be parent of self.")})
+            raise ValidationError({"name": _("Department with this name already.")})
 
     @staticmethod
     def _validate_no_cycle(parent: DepartmentModel, instance: DepartmentModel) -> None:
@@ -102,7 +80,6 @@ class DepartmentValidator:
             self._validate_unique_name_in_parent(name, parent, instance)
 
         if parent and instance:
-            self._validate_no_self_parent(parent, instance)
             self._validate_no_cycle(parent, instance)
 
     @staticmethod
@@ -145,6 +122,10 @@ class EmployeeValidator:
             raise ValidationError(
                 {"full_name": _("Please enter both first name and last name.")}
             )
+        if not re.match(r"^[a-zA-Zа-яА-ЯёЁ\s]+$", full_name):
+            raise ValidationError(
+                {"full_name": _("Can only contain letters and spaces.")}
+            )
 
     @staticmethod
     def _validate_hire_date(hired_at: Optional[Union[date, str]]) -> None:
@@ -168,17 +149,32 @@ class EmployeeValidator:
                     {"hired_at": _("Hire date cannot be earlier than 2010-01-01.")}
                 )
 
+    @staticmethod
+    def _validate_position(position: str) -> None:
+        """
+        Validate employee position format.
+        :param position: Employee position.
+        :raises ValidationError: If position contains invalid characters.
+        """
+        if not re.match(r"^[a-zA-Zа-яА-ЯёЁ0-9\s]+$", position):
+            raise ValidationError(
+                {"position": _("Can only contain letters, numbers and spaces.")}
+            )
+
     def validate_employee_data(
         self,
+        position: str,
         full_name: Optional[str] = None,
         hired_at: Optional[Union[date, str]] = None,
     ) -> None:
         """
         Validate all employee data.
+        :param position: Employee position.
         :param full_name: Employee full name to validate.
         :param hired_at: Hire date to validate.
         :raises ValidationError: If any validation fails.
         """
+        self._validate_position(position)
         if full_name:
             self._validate_full_name_format(full_name)
 

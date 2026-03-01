@@ -37,7 +37,7 @@ class TestValidateNameFormat(TestDepartmentValidatorBase):
         with pytest.raises(ValidationError) as exc_info:
             self.validator._validate_name_format(name)
         error = exc_info.value
-        assert error.detail == {"name": _("Name can only contain letters and spaces.")}
+        assert error.detail == {"name": _("Can only contain letters and spaces.")}
         assert error.detail["name"].code == "invalid"
         assert error.status_code == 400
 
@@ -75,11 +75,7 @@ class TestValidateUniqueNameInParent(TestDepartmentValidatorBase):
                 name=existing_name, parent=parent, instance=None
             )
         error = exc_info.value
-        assert error.detail == {
-            "name": _(
-                "Department with this name already " "exists in this parent department."
-            )
-        }
+        assert error.detail == {"name": _("Department with this name already.")}
         assert error.status_code == 400
         assert error.detail["name"].code == "invalid"
 
@@ -98,10 +94,6 @@ class TestValidateUniqueNameInParent(TestDepartmentValidatorBase):
                 instance=DepartmentFactory(name="old_name", parent=parent),
             )
         error = exc_info.value
-        assert error.detail == {
-            "name": _(
-                "Department with this name already exists in this parent department."
-            )
-        }
+        assert error.detail == {"name": _("Department with this name already.")}
         assert error.status_code == 400
         assert error.detail["name"].code == "invalid"

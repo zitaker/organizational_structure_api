@@ -201,8 +201,8 @@ class DepartmentDeleteService:
             raise ValidationError(
                 {
                     "reassign_to_department_id": _(
-                        "Cannot reassign employees to "
-                        "the same department being deleted."
+                        "It is not possible to transfer employees to "
+                        "the same department that is being abolished."
                     )
                 }
             )
