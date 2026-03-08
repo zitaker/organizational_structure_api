@@ -4,8 +4,8 @@ import re
 from datetime import date
 from typing import Optional, Union
 
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from rest_framework.exceptions import ValidationError
 
 from src.apps.departments.models import DepartmentModel
 

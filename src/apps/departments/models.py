@@ -31,6 +31,15 @@ class DepartmentModel(models.Model):
     def __str__(self):
         return self.name
 
+    def clean(self):
+        """Custom validation for department model."""
+        from src.apps.departments.validators import DepartmentValidator
+
+        validator = DepartmentValidator()
+        validator.validate_department_data(
+            name=self.name, parent=self.parent, instance=self
+        )
+
 
 class EmployeeModel(models.Model):
     """Model representing an employee."""
@@ -57,3 +66,14 @@ class EmployeeModel(models.Model):
 
     def __str__(self):
         return self.full_name
+
+    def clean(self):
+        """Custom validation for employee model."""
+        from src.apps.departments.validators import EmployeeValidator
+
+        validator = EmployeeValidator()
+        validator.validate_employee_data(
+            position=self.position,
+            full_name=self.full_name,
+            hired_at=self.hired_at,
+        )

@@ -1,8 +1,10 @@
 """Module for DepartmentValidator tests."""
 
+import re
+
 import pytest
+from django.core.exceptions import ValidationError
 from django.utils.translation import gettext_lazy as _
-from rest_framework.exceptions import ValidationError
 
 from src.apps.departments.validators import DepartmentValidator
 from tests.factories import DepartmentFactory
@@ -34,12 +36,20 @@ class TestValidateNameFormat(TestDepartmentValidatorBase):
         """
         Negative unit tests ValidationError for _validate_name_format.
         """
-        with pytest.raises(ValidationError) as exc_info:
+        expected_value = str(_("Can only contain letters and spaces."))
+        expected_message = str(
+            {
+                "name": [
+                    expected_value,
+                ]
+            }
+        )
+        with pytest.raises(
+            ValidationError,
+            match=re.escape(expected_message),
+        ) as exc:
             self.validator._validate_name_format(name)
-        error = exc_info.value
-        assert error.detail == {"name": _("Can only contain letters and spaces.")}
-        assert error.detail["name"].code == "invalid"
-        assert error.status_code == 400
+        assert "name" in exc.value.message_dict
 
 
 @pytest.mark.django_db
@@ -70,14 +80,22 @@ class TestValidateUniqueNameInParent(TestDepartmentValidatorBase):
         parent = DepartmentFactory(name="qwerty123")
         existing_name = "qwerty"
         DepartmentFactory(name=existing_name, parent=parent)
-        with pytest.raises(ValidationError) as exc_info:
+        expected_value = str(_("Department with this name already."))
+        expected_message = str(
+            {
+                "name": [
+                    expected_value,
+                ]
+            }
+        )
+        with pytest.raises(
+            ValidationError,
+            match=re.escape(expected_message),
+        ) as exc:
             self.validator._validate_unique_name_in_parent(
                 name=existing_name, parent=parent, instance=None
             )
-        error = exc_info.value
-        assert error.detail == {"name": _("Department with this name already.")}
-        assert error.status_code == 400
-        assert error.detail["name"].code == "invalid"
+        assert "name" in exc.value.message_dict
 
     def test_validate_unique_name_in_parent_validation_error_instance(self):
         """
@@ -87,13 +105,21 @@ class TestValidateUniqueNameInParent(TestDepartmentValidatorBase):
         parent = DepartmentFactory(name="Parent qwerty")
         existing_name = "qwerty"
         DepartmentFactory(name=existing_name, parent=parent)
-        with pytest.raises(ValidationError) as exc_info:
+        expected_value = str(_("Department with this name already."))
+        expected_message = str(
+            {
+                "name": [
+                    expected_value,
+                ]
+            }
+        )
+        with pytest.raises(
+            ValidationError,
+            match=re.escape(expected_message),
+        ) as exc:
             self.validator._validate_unique_name_in_parent(
                 name=existing_name,
                 parent=parent,
                 instance=DepartmentFactory(name="old_name", parent=parent),
             )
-        error = exc_info.value
-        assert error.detail == {"name": _("Department with this name already.")}
-        assert error.status_code == 400
-        assert error.detail["name"].code == "invalid"
+        assert "name" in exc.value.message_dict

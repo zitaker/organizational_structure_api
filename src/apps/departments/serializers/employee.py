@@ -72,13 +72,13 @@ class EmployeeSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
         """
-        Validate employee data using service layer.
+        Validate employee data using model-driven validation.
+        :param attrs: Dictionary of validated but not yet cleaned
+        data from the serializer
+        :returns: The validated attributes dictionary
         """
-        self.validator.validate_employee_data(
-            position=attrs["position"],
-            full_name=attrs.get("full_name"),
-            hired_at=attrs.get("hired_at"),
-        )
+        instance = EmployeeModel(**attrs)
+        instance.clean()
         return attrs
 
 
